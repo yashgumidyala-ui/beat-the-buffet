@@ -1,1 +1,12 @@
 pandas
+numpy
+pillow
+pyyaml
+
+torch
+torchvision
+timm
+
+fastapi
+uvicorn[standard]
+python-multipart

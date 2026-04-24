@@ -1,0 +1,33 @@
+data:
+  raw_dir: ml/data/raw
+  processed_dir: ml/data/processed
+  labels_csv: ml/data/labels.csv
+  image_size: 224
+  val_split: 0.15
+  test_split: 0.15
+  seed: 42
+
+model:
+  backbone: efficientnet_b0
+  pretrained: true
+  num_classes: 6
+  dropout: 0.2
+
+train:
+  batch_size: 32
+  epochs_frozen: 3
+  epochs_finetune: 15
+  lr_head: 0.001
+  lr_finetune: 0.0001
+  weight_decay: 0.0001
+  num_workers: 4
+
+augment:
+  hflip_prob: 0.5
+  rotation_deg: 15
+  color_jitter: 0.2
+
+checkpoint:
+  dir: ml/checkpoints
+  save_best_only: true
+  monitor: val_accuracy
