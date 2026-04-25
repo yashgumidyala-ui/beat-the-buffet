@@ -5,11 +5,12 @@ from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
+from pydantic import BaseModel
 
 from backend.app.llm import count_with_gpt4o
 from backend.app.pricing import (
@@ -19,6 +20,7 @@ from backend.app.pricing import (
     load_prices,
     price_plate,
 )
+from backend.app import tables
 from ml.src.detector import build_detector, detect_pieces
 
 load_dotenv()
@@ -71,6 +73,75 @@ async def prewarm(location: str = Form(...)):
     already_cached = is_loaded(location)
     success = load_prices(location)
     return {"location": location, "loaded": success, "from_cache": already_cached}
+
+
+class CreateTableRequest(BaseModel):
+    table_name: str
+    restaurant: str
+    city: str
+    ayce_price_per_person: float
+    tax_included: bool
+    tip_percent: float
+    host_name: str
+
+
+class JoinTableRequest(BaseModel):
+    name: str
+
+
+class TableCaptureRequest(BaseModel):
+    participant_id: str
+    total: int
+    counts: list[dict]
+    pricing: dict
+
+
+@app.post("/tables")
+async def create_table_endpoint(req: CreateTableRequest):
+    table, participant_id = tables.create_table(
+        table_name=req.table_name,
+        restaurant=req.restaurant,
+        city=req.city,
+        ayce_price_per_person=req.ayce_price_per_person,
+        tax_included=req.tax_included,
+        tip_percent=req.tip_percent,
+        host_name=req.host_name,
+    )
+    return {"table": table, "participant_id": participant_id}
+
+
+@app.get("/tables/{code}")
+async def get_table_endpoint(code: str):
+    table = tables.get_table(code)
+    if table is None:
+        raise HTTPException(404, "Table not found")
+    return table
+
+
+@app.post("/tables/{code}/join")
+async def join_table_endpoint(code: str, req: JoinTableRequest):
+    table, participant_id = tables.join_table(code, req.name)
+    if table is None:
+        raise HTTPException(404, "Table not found")
+    return {"table": table, "participant_id": participant_id}
+
+
+@app.post("/tables/{code}/captures")
+async def add_table_capture_endpoint(code: str, req: TableCaptureRequest):
+    table = tables.add_capture(
+        code, req.participant_id, req.total, req.counts, req.pricing,
+    )
+    if table is None:
+        raise HTTPException(404, "Table or participant not found")
+    return table
+
+
+@app.post("/tables/{code}/finish")
+async def finish_table_endpoint(code: str):
+    table = tables.finish_table(code)
+    if table is None:
+        raise HTTPException(404, "Table not found")
+    return table
 
 
 @app.post("/identify")
