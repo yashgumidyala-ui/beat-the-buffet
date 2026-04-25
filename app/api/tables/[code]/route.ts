@@ -29,6 +29,7 @@ async function getFullTable(supabase: SupabaseClient, code: string) {
     .order("timestamp", { ascending: true });
 
   // Format the response
+  // sessions.created_at/finished_at are bigint (ms), participants.joined_at is timestamptz, captures.timestamp is bigint (ms)
   return {
     code: table.code,
     table_name: table.table_name,
@@ -37,8 +38,8 @@ async function getFullTable(supabase: SupabaseClient, code: string) {
     ayce_price_per_person: Number(table.ayce_price_per_person),
     tax_included: table.tax_included,
     tip_percent: Number(table.tip_percent),
-    created_at: new Date(table.created_at).getTime() / 1000,
-    finished_at: table.finished_at ? new Date(table.finished_at).getTime() / 1000 : null,
+    created_at: Number(table.created_at) / 1000,
+    finished_at: table.finished_at ? Number(table.finished_at) / 1000 : null,
     participants: (participants || []).map((p) => ({
       id: p.id,
       name: p.name,
@@ -46,7 +47,7 @@ async function getFullTable(supabase: SupabaseClient, code: string) {
     })),
     captures: (captures || []).map((c) => ({
       id: c.id,
-      participant_id: c.participant_id,
+      participant_id: c.user_id,
       timestamp: Number(c.timestamp) / 1000,
       total: c.total,
       counts: c.counts,

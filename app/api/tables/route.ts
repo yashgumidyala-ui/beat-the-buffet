@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         ayce_price_per_person,
         tax_included,
         tip_percent,
-        created_at: new Date().toISOString(),
+        created_at: Date.now(),
       })
       .select()
       .single();
@@ -61,13 +61,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: tableError.message }, { status: 500 });
     }
 
-    // Create the host participant
+    // Create the host participant (joined_at has default of now())
     const { data: participant, error: participantError } = await supabase
       .from("participants")
       .insert({
         session_id: table.id,
         name: host_name?.trim() || "Player",
-        joined_at: new Date().toISOString(),
       })
       .select()
       .single();
@@ -78,6 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Format the response to match the expected structure
+    // Note: sessions.created_at and finished_at are bigint (ms), participants.joined_at is timestamptz
     const formattedTable = {
       code: table.code,
       table_name: table.table_name,
@@ -86,8 +86,8 @@ export async function POST(request: NextRequest) {
       ayce_price_per_person: Number(table.ayce_price_per_person),
       tax_included: table.tax_included,
       tip_percent: Number(table.tip_percent),
-      created_at: new Date(table.created_at).getTime() / 1000,
-      finished_at: table.finished_at ? new Date(table.finished_at).getTime() / 1000 : null,
+      created_at: Number(table.created_at) / 1000,
+      finished_at: table.finished_at ? Number(table.finished_at) / 1000 : null,
       participants: [
         {
           id: participant.id,

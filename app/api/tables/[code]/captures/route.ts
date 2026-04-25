@@ -39,9 +39,10 @@ export async function POST(
     }
 
     // Create the capture
+    // Note: captures table uses user_id (uuid), we store participant_id as user_id for tracking
     const { error: captureError } = await supabase.from("captures").insert({
       session_id: table.id,
-      participant_id,
+      user_id: participant_id,
       total,
       counts,
       pricing,
@@ -71,6 +72,7 @@ export async function POST(
       .order("timestamp", { ascending: true });
 
     // Format the response
+    // sessions.created_at/finished_at are bigint (ms), participants.joined_at is timestamptz, captures.timestamp is bigint (ms)
     const formattedTable = {
       code: table.code,
       table_name: table.table_name,
@@ -79,9 +81,9 @@ export async function POST(
       ayce_price_per_person: Number(table.ayce_price_per_person),
       tax_included: table.tax_included,
       tip_percent: Number(table.tip_percent),
-      created_at: new Date(table.created_at).getTime() / 1000,
+      created_at: Number(table.created_at) / 1000,
       finished_at: table.finished_at
-        ? new Date(table.finished_at).getTime() / 1000
+        ? Number(table.finished_at) / 1000
         : null,
       participants: (participants || []).map((p) => ({
         id: p.id,
@@ -90,7 +92,7 @@ export async function POST(
       })),
       captures: (captures || []).map((c) => ({
         id: c.id,
-        participant_id: c.participant_id,
+        participant_id: c.user_id,
         timestamp: Number(c.timestamp) / 1000,
         total: c.total,
         counts: c.counts,

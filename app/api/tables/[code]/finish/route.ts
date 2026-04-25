@@ -20,11 +20,11 @@ export async function POST(
       return NextResponse.json({ error: "Table not found" }, { status: 404 });
     }
 
-    // Update finished_at if not already set
+    // Update finished_at if not already set (bigint ms)
     if (!table.finished_at) {
       const { error: updateError } = await supabase
         .from("sessions")
-        .update({ finished_at: new Date().toISOString() })
+        .update({ finished_at: Date.now() })
         .eq("id", table.id);
 
       if (updateError) {
@@ -58,6 +58,7 @@ export async function POST(
       .order("timestamp", { ascending: true });
 
     // Format the response
+    // sessions.created_at/finished_at are bigint (ms), participants.joined_at is timestamptz, captures.timestamp is bigint (ms)
     const formattedTable = {
       code: updatedTable!.code,
       table_name: updatedTable!.table_name,
@@ -66,9 +67,9 @@ export async function POST(
       ayce_price_per_person: Number(updatedTable!.ayce_price_per_person),
       tax_included: updatedTable!.tax_included,
       tip_percent: Number(updatedTable!.tip_percent),
-      created_at: new Date(updatedTable!.created_at).getTime() / 1000,
+      created_at: Number(updatedTable!.created_at) / 1000,
       finished_at: updatedTable!.finished_at
-        ? new Date(updatedTable!.finished_at).getTime() / 1000
+        ? Number(updatedTable!.finished_at) / 1000
         : null,
       participants: (participants || []).map((p) => ({
         id: p.id,
@@ -77,7 +78,7 @@ export async function POST(
       })),
       captures: (captures || []).map((c) => ({
         id: c.id,
-        participant_id: c.participant_id,
+        participant_id: c.user_id,
         timestamp: Number(c.timestamp) / 1000,
         total: c.total,
         counts: c.counts,
