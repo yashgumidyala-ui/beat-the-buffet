@@ -47,7 +47,7 @@ async function getFullTable(supabase: SupabaseClient, code: string) {
     captures: (captures || []).map((c) => ({
       id: c.id,
       participant_id: c.participant_id,
-      timestamp: new Date(c.timestamp).getTime() / 1000,
+      timestamp: Number(c.timestamp) / 1000,
       total: c.total,
       counts: c.counts,
       pricing: c.pricing,

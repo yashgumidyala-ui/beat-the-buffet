@@ -45,7 +45,7 @@ export async function POST(
       total,
       counts,
       pricing,
-      timestamp: new Date().toISOString(),
+      timestamp: Date.now(),
     });
 
     if (captureError) {
@@ -91,7 +91,7 @@ export async function POST(
       captures: (captures || []).map((c) => ({
         id: c.id,
         participant_id: c.participant_id,
-        timestamp: new Date(c.timestamp).getTime() / 1000,
+        timestamp: Number(c.timestamp) / 1000,
         total: c.total,
         counts: c.counts,
         pricing: c.pricing,
