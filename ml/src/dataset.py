@@ -25,6 +25,7 @@ def build_transforms(image_size: int, train: bool, aug: dict):
                 brightness=aug["color_jitter"],
                 contrast=aug["color_jitter"],
                 saturation=aug["color_jitter"],
+                hue=aug.get("hue_jitter", 0.0),
             ),
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),

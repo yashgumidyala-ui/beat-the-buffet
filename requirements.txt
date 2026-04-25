@@ -6,8 +6,12 @@ pyyaml
 torch
 torchvision
 timm
+ultralytics
 
 fastapi
 uvicorn[standard]
 python-multipart
 requests
+
+openai
+python-dotenv

@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Beat the Buffet — Sushi Identifier</title>
+  <title>Beat the Buffet — Sushi Counter</title>
   <style>
     :root { color-scheme: light dark; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-      max-width: 720px;
+      max-width: 760px;
       margin: 2rem auto;
       padding: 0 1rem;
     }
@@ -21,14 +21,14 @@
       overflow: hidden;
       aspect-ratio: 4/3;
     }
-    video, img.preview {
+    video, canvas.preview {
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: block;
     }
-    img.preview { display: none; }
-    canvas { display: none; }
+    canvas.preview { display: none; }
+    canvas#hidden { display: none; }
     .controls { display: flex; gap: 0.5rem; margin: 1rem 0; flex-wrap: wrap; }
     button {
       font-size: 1rem;
@@ -41,40 +41,59 @@
     }
     button.secondary { background: #6b7280; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .pred { padding: 0.5rem 0; }
-    .pred-row { display: flex; justify-content: space-between; font-weight: 600; }
-    .bar-bg { background: #e5e7eb; border-radius: 4px; height: 8px; margin-top: 4px; overflow: hidden; }
-    .bar { background: linear-gradient(90deg, #2563eb, #10b981); height: 100%; transition: width 0.3s ease; }
-    .pred:first-child .pred-row { color: #10b981; }
-    #status { color: #6b7280; min-height: 1.2rem; }
+    #status { color: #6b7280; min-height: 1.2rem; margin-bottom: 0.5rem; }
+    #error { color: #ef4444; min-height: 1.2rem; font-size: 0.9rem; }
+    .total {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin: 1rem 0 0.5rem;
+    }
+    .count-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 1.05rem;
+    }
+    .count-row .qty {
+      font-weight: 700;
+      color: #2563eb;
+      font-variant-numeric: tabular-nums;
+    }
   </style>
 </head>
 <body>
-  <h1>Sushi Identifier</h1>
-  <p class="sub">Point your webcam at a sushi item, then capture.</p>
+  <h1>Sushi Counter</h1>
+  <p class="sub">Point your webcam at a plate of sushi, then capture.</p>
 
   <div class="stage">
     <video id="video" autoplay playsinline muted></video>
-    <img id="preview" class="preview" alt="captured frame" />
+    <canvas id="preview" class="preview"></canvas>
   </div>
-  <canvas id="canvas"></canvas>
+  <canvas id="hidden"></canvas>
 
   <div class="controls">
-    <button id="capture">Capture & Identify</button>
+    <button id="capture">Capture & Count</button>
     <button id="retake" class="secondary" disabled>Retake</button>
   </div>
 
   <div id="status"></div>
-  <div id="results"></div>
+  <div id="error"></div>
+  <div id="total" class="total"></div>
+  <div id="counts"></div>
 
   <script>
     const video = document.getElementById("video");
-    const preview = document.getElementById("preview");
-    const canvas = document.getElementById("canvas");
+    const previewCanvas = document.getElementById("preview");
+    const hiddenCanvas = document.getElementById("hidden");
     const captureBtn = document.getElementById("capture");
     const retakeBtn = document.getElementById("retake");
     const statusEl = document.getElementById("status");
-    const resultsEl = document.getElementById("results");
+    const errorEl = document.getElementById("error");
+    const totalEl = document.getElementById("total");
+    const countsEl = document.getElementById("counts");
+
+    const BOX_COLOR = "#2563eb";
 
     async function startCamera() {
       try {
@@ -90,16 +109,43 @@
 
     function showVideo() {
       video.style.display = "block";
-      preview.style.display = "none";
+      previewCanvas.style.display = "none";
       retakeBtn.disabled = true;
       captureBtn.disabled = false;
+      totalEl.textContent = "";
+      countsEl.innerHTML = "";
+      statusEl.textContent = "";
+      errorEl.textContent = "";
     }
 
-    function showPreview(dataUrl) {
-      preview.src = dataUrl;
+    function drawBoxes(imageBitmap, boxes) {
+      previewCanvas.width = imageBitmap.width;
+      previewCanvas.height = imageBitmap.height;
+      const ctx = previewCanvas.getContext("2d");
+      ctx.drawImage(imageBitmap, 0, 0);
+
+      const lineWidth = Math.max(2, Math.round(imageBitmap.width / 250));
+      const fontPx = Math.max(14, Math.round(imageBitmap.width / 40));
+      ctx.lineWidth = lineWidth;
+      ctx.font = `bold ${fontPx}px -apple-system, sans-serif`;
+      ctx.textBaseline = "top";
+
+      boxes.forEach((box, i) => {
+        const [x1, y1, x2, y2] = box;
+        ctx.strokeStyle = BOX_COLOR;
+        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+        const num = String(i + 1);
+        const w = ctx.measureText(num).width + 12;
+        const h = fontPx + 8;
+        ctx.fillStyle = BOX_COLOR;
+        ctx.fillRect(x1, y1, w, h);
+        ctx.fillStyle = "#fff";
+        ctx.fillText(num, x1 + 6, y1 + 4);
+      });
+
       video.style.display = "none";
-      preview.style.display = "block";
-      retakeBtn.disabled = false;
+      previewCanvas.style.display = "block";
     }
 
     captureBtn.addEventListener("click", async () => {
@@ -107,46 +153,54 @@
         statusEl.textContent = "Camera not ready yet — wait a moment.";
         return;
       }
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext("2d").drawImage(video, 0, 0);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-      showPreview(dataUrl);
-
-      const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.9));
-      const fd = new FormData();
-      fd.append("file", blob, "frame.jpg");
+      hiddenCanvas.width = video.videoWidth;
+      hiddenCanvas.height = video.videoHeight;
+      hiddenCanvas.getContext("2d").drawImage(video, 0, 0);
+      const blob = await new Promise((r) => hiddenCanvas.toBlob(r, "image/jpeg", 0.9));
 
       captureBtn.disabled = true;
-      statusEl.textContent = "Identifying...";
-      resultsEl.innerHTML = "";
+      retakeBtn.disabled = false;
+      statusEl.textContent = "Analyzing image...";
+      errorEl.textContent = "";
+      totalEl.textContent = "";
+      countsEl.innerHTML = "";
 
       try {
+        const fd = new FormData();
+        fd.append("file", blob, "frame.jpg");
         const res = await fetch("/identify", { method: "POST", body: fd });
         if (!res.ok) throw new Error("server " + res.status);
         const json = await res.json();
-        statusEl.textContent = "Top guess: " + json.predictions[0].display;
-        resultsEl.innerHTML = json.predictions
-          .map((p) => {
-            const pct = (p.confidence * 100).toFixed(1);
-            return `
-              <div class="pred">
-                <div class="pred-row"><span>${p.display}</span><span>${pct}%</span></div>
-                <div class="bar-bg"><div class="bar" style="width:${pct}%"></div></div>
-              </div>`;
-          })
-          .join("");
+
+        const bitmap = await createImageBitmap(blob);
+        drawBoxes(bitmap, json.boxes || []);
+
+        if (json.error) {
+          statusEl.textContent = "";
+          errorEl.textContent = "LLM: " + json.error;
+          return;
+        }
+
+        if (json.total === 0) {
+          statusEl.textContent = "No sushi found.";
+        } else {
+          statusEl.textContent = "";
+          totalEl.textContent = `Total: ${json.total} piece${json.total === 1 ? "" : "s"}`;
+          countsEl.innerHTML = json.counts
+            .map((c) => `
+              <div class="count-row">
+                <span>${c.display}</span>
+                <span class="qty">${c.count}</span>
+              </div>`)
+            .join("");
+        }
       } catch (err) {
-        statusEl.textContent = "Error: " + err.message;
+        statusEl.textContent = "";
+        errorEl.textContent = "Error: " + err.message;
       }
     });
 
-    retakeBtn.addEventListener("click", () => {
-      showVideo();
-      statusEl.textContent = "";
-      resultsEl.innerHTML = "";
-    });
-
+    retakeBtn.addEventListener("click", showVideo);
     startCamera();
   </script>
 </body>
