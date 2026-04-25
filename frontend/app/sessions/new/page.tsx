@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { fetchLocations, prewarm } from "@/lib/api";
-import { createSession } from "@/lib/storage";
+import { createTable, fetchLocations, prewarm } from "@/lib/api";
+import { getUserName, rememberTable, setUserName } from "@/lib/storage";
 
 export default function NewTablePage() {
   const router = useRouter();
@@ -19,21 +19,25 @@ export default function NewTablePage() {
   const [tipPercent, setTipPercent] = useState("");
   const [city, setCity] = useState("New York");
   const [cities, setCities] = useState<string[]>(["New York"]);
+  const [hostName, setHostName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setHostName(getUserName());
     fetchLocations()
       .then((data) => {
         setCities(data.locations);
         setCity(data.default);
       })
-      .catch(() => {
-        // Fall back silently — backend may not be reachable yet.
-      });
+      .catch(() => {});
   }, []);
 
-  const valid = tableName.trim() !== "" && restaurant.trim() !== "" && Number(aycePrice) > 0;
+  const valid =
+    tableName.trim() !== "" &&
+    restaurant.trim() !== "" &&
+    Number(aycePrice) > 0 &&
+    hostName.trim() !== "";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,17 +45,27 @@ export default function NewTablePage() {
     setSubmitting(true);
     setError(null);
     try {
-      // Best-effort prewarm so first capture is fast.
+      setUserName(hostName);
       prewarm(city).catch(() => {});
-      const session = createSession({
-        tableName: tableName.trim(),
+      const { table, participant_id } = await createTable({
+        table_name: tableName.trim(),
         restaurant: restaurant.trim(),
         city,
-        aycePricePerPerson: Number(aycePrice),
-        taxIncluded,
-        tipPercent: tipPercent === "" ? 0 : Number(tipPercent),
+        ayce_price_per_person: Number(aycePrice),
+        tax_included: taxIncluded,
+        tip_percent: tipPercent === "" ? 0 : Number(tipPercent),
+        host_name: hostName.trim(),
       });
-      router.push(`/sessions/${session.id}`);
+      rememberTable({
+        code: table.code,
+        participantId: participant_id,
+        tableName: table.table_name,
+        restaurant: table.restaurant,
+        city: table.city,
+        joinedAt: Date.now(),
+        finishedAt: null,
+      });
+      router.push(`/sessions/${table.code}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create session");
       setSubmitting(false);
@@ -72,13 +86,23 @@ export default function NewTablePage() {
 
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div>
+          <Label htmlFor="hostName">Your name</Label>
+          <Input
+            id="hostName"
+            placeholder="e.g. Rick"
+            value={hostName}
+            onChange={(e) => setHostName(e.target.value)}
+            required
+          />
+        </div>
+
+        <div>
           <Label htmlFor="tableName">Table name</Label>
           <Input
             id="tableName"
             placeholder="e.g. Rick&rsquo;s Table"
             value={tableName}
             onChange={(e) => setTableName(e.target.value)}
-            className={tableName ? undefined : "border-brand"}
             required
           />
         </div>

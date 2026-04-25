@@ -6,22 +6,21 @@ import { Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SessionCard } from "@/components/session-card";
-import { listSessions } from "@/lib/storage";
-import type { Session } from "@/lib/types";
+import { listRecents, type RecentTable } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
 type Tab = "planned" | "in-progress" | "finished";
 
 export default function SessionsPage() {
   const [tab, setTab] = useState<Tab>("in-progress");
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [recents, setRecents] = useState<RecentTable[]>([]);
 
   useEffect(() => {
-    setSessions(listSessions());
+    setRecents(listRecents());
   }, []);
 
-  const inProgress = sessions.filter((s) => !s.finishedAt);
-  const finished = sessions.filter((s) => s.finishedAt);
+  const inProgress = recents.filter((r) => !r.finishedAt);
+  const finished = recents.filter((r) => r.finishedAt);
 
   return (
     <div className="px-5 pt-12">
@@ -48,8 +47,8 @@ export default function SessionsPage() {
         ))}
       </div>
 
-      {tab === "in-progress" && <InProgressView sessions={inProgress} />}
-      {tab === "finished" && <FinishedView sessions={finished} />}
+      {tab === "in-progress" && <InProgressView recents={inProgress} />}
+      {tab === "finished" && <FinishedView recents={finished} />}
       {tab === "planned" && (
         <p className="text-center text-gray-500 mt-10">Planned sessions coming soon.</p>
       )}
@@ -57,16 +56,21 @@ export default function SessionsPage() {
   );
 }
 
-function InProgressView({ sessions }: { sessions: Session[] }) {
-  if (sessions.length > 0) {
+function InProgressView({ recents }: { recents: RecentTable[] }) {
+  if (recents.length > 0) {
     return (
       <div className="space-y-4">
-        {sessions.map((s) => (
-          <SessionCard key={s.id} session={s} />
+        {recents.map((r) => (
+          <SessionCard key={r.code} recent={r} />
         ))}
-        <Link href="/sessions/new" className="block pt-4">
-          <Button className="w-full">+ Start another table</Button>
-        </Link>
+        <div className="pt-4 grid grid-cols-2 gap-3">
+          <Link href="/sessions/new">
+            <Button className="w-full">+ New table</Button>
+          </Link>
+          <Link href="/sessions/join">
+            <Button variant="outline" className="w-full">Join table</Button>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -98,16 +102,16 @@ function InProgressView({ sessions }: { sessions: Session[] }) {
         <div className="aspect-[4/3] rounded-xl bg-white flex items-center justify-center mb-4">
           <Emoji label="👥" />
         </div>
-        <Button className="w-full" disabled title="Multi-user coming in phase 3">
-          Join a table
-        </Button>
+        <Link href="/sessions/join">
+          <Button className="w-full">Join a table</Button>
+        </Link>
       </Card>
     </div>
   );
 }
 
-function FinishedView({ sessions }: { sessions: Session[] }) {
-  if (sessions.length === 0) {
+function FinishedView({ recents }: { recents: RecentTable[] }) {
+  if (recents.length === 0) {
     return (
       <div className="text-center pt-8">
         <div className="text-7xl mb-6">😮‍💨</div>
@@ -121,8 +125,8 @@ function FinishedView({ sessions }: { sessions: Session[] }) {
   }
   return (
     <div className="space-y-5">
-      {sessions.map((s) => (
-        <SessionCard key={s.id} session={s} />
+      {recents.map((r) => (
+        <SessionCard key={r.code} recent={r} />
       ))}
     </div>
   );

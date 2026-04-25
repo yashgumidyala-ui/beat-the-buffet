@@ -27,25 +27,33 @@ export type IdentifyResponse = {
   error?: string;
 };
 
-export type Capture = {
+export type Participant = {
   id: string;
+  name: string;
+  joined_at: number;
+};
+
+export type ServerCapture = {
+  id: string;
+  participant_id: string;
   timestamp: number;
   total: number;
   counts: CountEntry[];
   pricing: Pricing;
 };
 
-export type Session = {
-  id: string;
-  tableName: string;
+export type Table = {
+  code: string;
+  table_name: string;
   restaurant: string;
   city: string;
-  aycePricePerPerson: number;
-  taxIncluded: boolean;
-  tipPercent: number;
-  createdAt: number;
-  finishedAt: number | null;
-  captures: Capture[];
+  ayce_price_per_person: number;
+  tax_included: boolean;
+  tip_percent: number;
+  created_at: number;
+  finished_at: number | null;
+  participants: Participant[];
+  captures: ServerCapture[];
 };
 
 export const NYC_TAX_RATE = 0.08875;

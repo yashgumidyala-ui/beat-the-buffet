@@ -1,62 +1,64 @@
 "use client";
-import type { Capture, Session } from "./types";
 
-const KEY = "btb.sessions.v1";
+const NAME_KEY = "btb.user.name.v1";
+const RECENTS_KEY = "btb.recents.v1";
 
-function read(): Session[] {
+export type RecentTable = {
+  code: string;
+  participantId: string;
+  tableName: string;
+  restaurant: string;
+  city: string;
+  joinedAt: number;
+  finishedAt: number | null;
+};
+
+export function getUserName(): string {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem(NAME_KEY) || "";
+}
+
+export function setUserName(name: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(NAME_KEY, name.trim());
+}
+
+function readRecents(): RecentTable[] {
   if (typeof window === "undefined") return [];
   try {
-    return JSON.parse(localStorage.getItem(KEY) || "[]");
+    return JSON.parse(localStorage.getItem(RECENTS_KEY) || "[]");
   } catch {
     return [];
   }
 }
 
-function write(sessions: Session[]): void {
+function writeRecents(items: RecentTable[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(KEY, JSON.stringify(sessions));
+  localStorage.setItem(RECENTS_KEY, JSON.stringify(items));
 }
 
-export function listSessions(): Session[] {
-  return read().sort((a, b) => b.createdAt - a.createdAt);
+export function listRecents(): RecentTable[] {
+  return readRecents().sort((a, b) => b.joinedAt - a.joinedAt);
 }
 
-export function getSession(id: string): Session | null {
-  return read().find((s) => s.id === id) ?? null;
+export function getRecent(code: string): RecentTable | null {
+  return readRecents().find((r) => r.code.toUpperCase() === code.toUpperCase()) ?? null;
 }
 
-export function createSession(input: Omit<Session, "id" | "createdAt" | "finishedAt" | "captures">): Session {
-  const session: Session = {
-    ...input,
-    id: crypto.randomUUID(),
-    createdAt: Date.now(),
-    finishedAt: null,
-    captures: [],
-  };
-  const all = read();
-  all.push(session);
-  write(all);
-  return session;
+export function rememberTable(entry: RecentTable): void {
+  const items = readRecents().filter((r) => r.code !== entry.code);
+  items.push(entry);
+  writeRecents(items);
 }
 
-export function addCapture(sessionId: string, capture: Capture): Session | null {
-  const all = read();
-  const idx = all.findIndex((s) => s.id === sessionId);
-  if (idx === -1) return null;
-  all[idx].captures.push(capture);
-  write(all);
-  return all[idx];
+export function updateRecent(code: string, patch: Partial<RecentTable>): void {
+  const items = readRecents();
+  const idx = items.findIndex((r) => r.code.toUpperCase() === code.toUpperCase());
+  if (idx === -1) return;
+  items[idx] = { ...items[idx], ...patch };
+  writeRecents(items);
 }
 
-export function finishSession(sessionId: string): Session | null {
-  const all = read();
-  const idx = all.findIndex((s) => s.id === sessionId);
-  if (idx === -1) return null;
-  all[idx].finishedAt = Date.now();
-  write(all);
-  return all[idx];
-}
-
-export function deleteSession(sessionId: string): void {
-  write(read().filter((s) => s.id !== sessionId));
+export function forgetTable(code: string): void {
+  writeRecents(readRecents().filter((r) => r.code !== code));
 }
