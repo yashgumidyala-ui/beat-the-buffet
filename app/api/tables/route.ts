@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
 const ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       host_name,
     } = body;
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     // Generate a unique code
     let code = generateCode();

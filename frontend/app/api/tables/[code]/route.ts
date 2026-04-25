@@ -1,7 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-async function getFullTable(supabase: Awaited<ReturnType<typeof createClient>>, code: string) {
+async function getFullTable(supabase: SupabaseClient, code: string) {
   // Get the table
   const { data: table, error: tableError } = await supabase
     .from("sessions")
@@ -60,7 +61,7 @@ export async function GET(
 ) {
   try {
     const { code } = await params;
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const table = await getFullTable(supabase, code);
 
     if (!table) {
