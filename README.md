@@ -5,5 +5,5 @@ Goals:\
 - Machine Learning Model for Food Identification as well as measuring how much food\
 - API to pull geographic location\
 - "Tables" social system + social media sharing\
-- Multiple users can enagge in one table\
-- Leaderboard and Point system
+- Multiple users can engage in one table\
+- Leaderboard and point system
