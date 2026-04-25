@@ -5,13 +5,19 @@ from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from backend.app.llm import count_with_gpt4o
-from backend.app.pricing import load_prices, price_plate
+from backend.app.pricing import (
+    DEFAULT_LOCATION,
+    is_loaded,
+    list_locations,
+    load_prices,
+    price_plate,
+)
 from ml.src.detector import build_detector, detect_pieces
 
 load_dotenv()
@@ -47,8 +53,23 @@ async def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/locations")
+async def locations():
+    return {"locations": list_locations(), "default": DEFAULT_LOCATION}
+
+
+@app.post("/prewarm")
+async def prewarm(location: str = Form(...)):
+    already_cached = is_loaded(location)
+    success = load_prices(location)
+    return {"location": location, "loaded": success, "from_cache": already_cached}
+
+
 @app.post("/identify")
-async def identify(file: UploadFile = File(...)):
+async def identify(
+    file: UploadFile = File(...),
+    location: str = Form(DEFAULT_LOCATION),
+):
     image_bytes = await file.read()
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     width, height = img.size
@@ -83,7 +104,7 @@ async def identify(file: UploadFile = File(...)):
         total += qty
 
     counts.sort(key=lambda c: -c["count"])
-    pricing = price_plate(counts)
+    pricing = price_plate(counts, location)
 
     return {
         "image_size": [width, height],

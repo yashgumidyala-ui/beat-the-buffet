@@ -97,6 +97,32 @@
       font-style: italic;
       margin-top: 1rem;
     }
+    .location-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin: 0.75rem 0 0.5rem;
+      flex-wrap: wrap;
+    }
+    .location-bar label {
+      font-size: 0.95rem;
+      color: #6b7280;
+    }
+    select#location {
+      font-size: 1rem;
+      padding: 0.45rem 0.7rem;
+      border: 1px solid #6b7280;
+      border-radius: 6px;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+    }
+    .location-status {
+      font-size: 0.85rem;
+      color: #6b7280;
+    }
+    .location-status.ready { color: #10b981; }
+    .location-status.loading { color: #f59e0b; }
   </style>
 </head>
 <body>
@@ -112,6 +138,12 @@
   <div class="controls">
     <button id="capture">Capture & Count</button>
     <button id="retake" class="secondary" disabled>Retake</button>
+  </div>
+
+  <div class="location-bar">
+    <label for="location">Pricing location:</label>
+    <select id="location"></select>
+    <span id="location-status" class="location-status"></span>
   </div>
 
   <div id="status"></div>
@@ -131,8 +163,55 @@
     const totalEl = document.getElementById("total");
     const countsEl = document.getElementById("counts");
     const pricingEl = document.getElementById("pricing");
+    const locationSelect = document.getElementById("location");
+    const locationStatusEl = document.getElementById("location-status");
 
     const BOX_COLOR = "#2563eb";
+    const warmedLocations = new Set();
+
+    async function initLocations() {
+      try {
+        const res = await fetch("/locations");
+        const json = await res.json();
+        locationSelect.innerHTML = json.locations
+          .map((c) => `<option value="${c}"${c === json.default ? " selected" : ""}>${c}</option>`)
+          .join("");
+        // Default location is prefetched by the server at startup.
+        warmedLocations.add(json.default);
+        setLocationStatus("ready", "prices ready");
+      } catch (err) {
+        locationStatusEl.textContent = "Could not load locations: " + err.message;
+      }
+    }
+
+    function setLocationStatus(state, text) {
+      locationStatusEl.className = "location-status " + state;
+      locationStatusEl.textContent = text;
+    }
+
+    async function prewarmLocation(loc) {
+      if (warmedLocations.has(loc)) {
+        setLocationStatus("ready", "prices ready");
+        return;
+      }
+      setLocationStatus("loading", `Fetching ${loc} prices...`);
+      try {
+        const fd = new FormData();
+        fd.append("location", loc);
+        const res = await fetch("/prewarm", { method: "POST", body: fd });
+        const json = await res.json();
+        if (json.loaded) {
+          warmedLocations.add(loc);
+          setLocationStatus("ready", "prices ready");
+        } else {
+          setLocationStatus("", "prewarm skipped (no API key?)");
+        }
+      } catch (err) {
+        setLocationStatus("", "Prewarm failed: " + err.message);
+      }
+    }
+
+    locationSelect.addEventListener("change", () => prewarmLocation(locationSelect.value));
 
     async function startCamera() {
       try {
@@ -237,9 +316,11 @@
       try {
         const fd = new FormData();
         fd.append("file", blob, "frame.jpg");
+        fd.append("location", locationSelect.value);
         const res = await fetch("/identify", { method: "POST", body: fd });
         if (!res.ok) throw new Error("server " + res.status);
         const json = await res.json();
+        warmedLocations.add(locationSelect.value);
 
         const bitmap = await createImageBitmap(blob);
         drawBoxes(bitmap, json.boxes || []);
@@ -272,6 +353,7 @@
 
     retakeBtn.addEventListener("click", showVideo);
     startCamera();
+    initLocations();
   </script>
 </body>
 </html>
