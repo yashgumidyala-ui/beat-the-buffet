@@ -41,6 +41,7 @@ export async function POST(
         .insert({
           session_id: table.id,
           name: trimmedName,
+          joined_at: new Date().toISOString(),
         })
         .select()
         .single();

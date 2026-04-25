@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
         ayce_price_per_person,
         tax_included,
         tip_percent,
+        created_at: new Date().toISOString(),
       })
       .select()
       .single();
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
       .insert({
         session_id: table.id,
         name: host_name?.trim() || "Player",
+        joined_at: new Date().toISOString(),
       })
       .select()
       .single();

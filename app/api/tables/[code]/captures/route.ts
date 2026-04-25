@@ -45,6 +45,7 @@ export async function POST(
       total,
       counts,
       pricing,
+      timestamp: new Date().toISOString(),
     });
 
     if (captureError) {
